@@ -1,17 +1,24 @@
 package com.uniquindio.fintech.dto;
 
 import com.uniquindio.fintech.enums.NivelUsuario;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-public record BeneficioRequestDTO(@NotNull(message = "El nombre es obligatorio")
-                                  @Size(min = 3, max = 30, message = "el nombre debe tener entre 3 y 30 caracteres")
-                                  String nombre,
-                                  @NotNull(message = "La descripcion es necesaria")
-                                  @Size(min = 10, max = 50, message = "La descripcion debe tener entre 10 y 50 caracteres")
-                                  String descripcion,
-                                  @Positive(message = "Los puntos no pueden ser menores a 1")
-                                  int puntosRequeridos
-                                  ) {
+public record BeneficioRequestDTO(
+        @NotBlank(message = "El nombre del beneficio es obligatorio.")
+        @Size(min = 3, max = 100, message = "El nombre debe tener entre 3 y 100 caracteres.")
+        String nombre,
+
+        @NotBlank(message = "La descripción del beneficio es obligatoria.")
+        @Size(min = 5, max = 500, message = "La descripción debe tener entre 5 y 500 caracteres.")
+        String descripcion,
+
+        @Positive(message = "El costo en puntos debe ser mayor a cero.")
+        int costoPuntos,
+
+        @NotNull(message = "El nivel requerido es obligatorio.")
+        NivelUsuario nivelRequerido
+) {
 }

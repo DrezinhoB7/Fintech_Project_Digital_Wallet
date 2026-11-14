@@ -1,13 +1,7 @@
 package com.uniquindio.fintech.mapper;
 
-import com.uniquindio.fintech.dto.BilleteraResponseDTO;
-import com.uniquindio.fintech.dto.OperacionProgramadaResponseDTO;
-import com.uniquindio.fintech.dto.TransaccionResponseDTO;
-import com.uniquindio.fintech.dto.UsuarioResponseDTO;
-import com.uniquindio.fintech.model.Billetera;
-import com.uniquindio.fintech.model.OperacionProgramada;
-import com.uniquindio.fintech.model.Transaccion;
-import com.uniquindio.fintech.model.Usuario;
+import com.uniquindio.fintech.dto.*;
+import com.uniquindio.fintech.model.*;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -79,4 +73,33 @@ public class FintechMapper {
                 op.getBilleteraDestino() != null ? op.getBilleteraDestino().getCodigo() : null
         );
     }
+
+    public BeneficioResponseDTO toBeneficioDTO(Beneficio beneficio) {
+        return new BeneficioResponseDTO(
+                beneficio.getId(),
+                beneficio.getNombre(),
+                beneficio.getDescripcion(),
+                beneficio.getCostoPuntos(),
+                beneficio.getNivelRequerido()
+        );
+    }
+
+    public CanjeResponseDTO toCanjeDTO(UsuarioBeneficio canje) {
+        Usuario u = canje.getUsuario();
+        Beneficio b = canje.getBeneficio();
+
+        return new CanjeResponseDTO(
+                canje.getId(),
+                u.getId(),
+                u.getNombre(),
+                b.getId(),
+                b.getNombre(),
+                canje.getPuntosDescontados(),
+                u.getPuntosAcumulados(),
+                u.getNivel(),
+                canje.getFechaCanje()
+        );
+    }
+
+
 }

@@ -55,7 +55,6 @@ public class UsuarioService {
         );
         nuevoUsuario = usuarioRepository.save(nuevoUsuario);
 
-        // Garantiza la multiplicidad 1..* del UML creando su billetera inicial
         String codigoInicial = generarCodigoBilletera();
         Billetera billeteraInicial = new Billetera(
                 codigoInicial,
