@@ -22,21 +22,23 @@ public class OperacionProgramadaController {
     }
 
     @PostMapping
-    public ResponseEntity<OperacionProgramadaResponseDTO> programarOperacion(@Valid @RequestBody OperacionProgramadaRequestDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(operacionProgramadaService.nuevaOperacionProgramada(dto));
+    public ResponseEntity<OperacionProgramadaResponseDTO> programarOperacion(
+            @Valid @RequestBody OperacionProgramadaRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(operacionProgramadaService.nuevaOperacionProgramada(dto));
     }
 
-    @GetMapping("/pendientes")
-    public ResponseEntity<List<OperacionProgramadaResponseDTO>> listarOperacionesPendientes() {
+    @GetMapping
+    public ResponseEntity<List<OperacionProgramadaResponseDTO>> listarPendientes() {
         return ResponseEntity.ok(operacionProgramadaService.listarOperacionesPendientes());
     }
 
     @PostMapping("/ejecutar")
-    public ResponseEntity<List<OperacionProgramadaResponseDTO>> ejecutarOperacionesPendientes() {
+    public ResponseEntity<List<OperacionProgramadaResponseDTO>> ejecutarPendientes() {
         return ResponseEntity.ok(operacionProgramadaService.ejecutarOperacionesPendientes());
     }
 
-    @PatchMapping("/{id}/cancelar")
+    @DeleteMapping("/{id}")
     public ResponseEntity<OperacionProgramadaResponseDTO> cancelarOperacion(@PathVariable String id) {
         return ResponseEntity.ok(operacionProgramadaService.cancelarOperacionProgramada(id));
     }
