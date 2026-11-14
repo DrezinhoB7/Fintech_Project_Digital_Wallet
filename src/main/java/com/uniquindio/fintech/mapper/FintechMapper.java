@@ -45,14 +45,16 @@ public class FintechMapper {
                 billetera.getUsuario().getNombre()
         );
     }
-    public OperacionProgramadaResponseDTO toProgramadaDTO(OperacionProgramada op){
+    public OperacionProgramadaResponseDTO toProgramadaDTO(OperacionProgramada op) {
         return new OperacionProgramadaResponseDTO(
                 op.getId(),
                 op.getFechaEjecucion(),
+                op.getTipoOperacion(),
+                op.getValor(),
                 op.getFrecuencia(),
                 op.isActiva(),
-                op.getBilleteraOrigen(),
-                op.getBilleteraDestino()
+                op.getBilleteraOrigen() != null ? op.getBilleteraOrigen().getCodigo() : null,
+                op.getBilleteraDestino() != null ? op.getBilleteraDestino().getCodigo() : null
         );
     }
 }
