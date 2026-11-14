@@ -101,5 +101,14 @@ public class FintechMapper {
         );
     }
 
-
+    public NotificacionResponseDTO toNotificacionDTO(Notificacion notificacion) {
+        return new NotificacionResponseDTO(
+                notificacion.getId(),
+                notificacion.getTipoAlerta(),
+                notificacion.getMensaje(),
+                notificacion.getFecha(),
+                notificacion.isLeida(),
+                notificacion.getUsuario()
+        );
+    }
 }

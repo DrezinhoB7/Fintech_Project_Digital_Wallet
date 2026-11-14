@@ -34,7 +34,7 @@ public class BeneficioService {
     private final UsuarioRepository usuarioRepository;
     private final UsuarioBeneficioRepository usuarioBeneficioRepository;
     private final BilleteraRepository billeteraRepository;
-    private final NotificacionRepository notificacionRepository;
+    private final NotificacionService notificacionService;
     private final PlataformaFintechContext context;
     private final FintechMapper mapper;
 
@@ -42,14 +42,14 @@ public class BeneficioService {
                             UsuarioRepository usuarioRepository,
                             UsuarioBeneficioRepository usuarioBeneficioRepository,
                             BilleteraRepository billeteraRepository,
-                            NotificacionRepository notificacionRepository,
+                            NotificacionService notificacionService,
                             PlataformaFintechContext context,
                             FintechMapper mapper) {
         this.beneficioRepository = beneficioRepository;
         this.usuarioRepository = usuarioRepository;
         this.usuarioBeneficioRepository = usuarioBeneficioRepository;
         this.billeteraRepository = billeteraRepository;
-        this.notificacionRepository = notificacionRepository;
+        this.notificacionService = notificacionService;
         this.context = context;
         this.mapper = mapper;
     }
@@ -89,7 +89,7 @@ public class BeneficioService {
         return disponibles;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = OperacionInvalidaException.class)
     public CanjeResponseDTO canjearBeneficio(CanjeRequestDTO dto) {
         Usuario usuario = usuarioRepository.findById(dto.usuarioId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + dto.usuarioId()));
@@ -98,6 +98,10 @@ public class BeneficioService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Beneficio no encontrado con ID: " + dto.beneficioId()));
 
         if (!beneficio.esAplicable(usuario)) {
+            notificacionService.notificarOperacionRechazada(
+                    usuario,
+                    "Canje del beneficio '" + beneficio.getNombre() + "' rechazado: no cumples los requisitos (puntos suficientes o nivel " + beneficio.getNivelRequerido() + ")."
+            );
             throw new OperacionInvalidaException(
                     "No cumples los requisitos (puntos suficientes, nivel " + beneficio.getNivelRequerido() + " o cuenta activa) para este beneficio."
             );
@@ -114,13 +118,7 @@ public class BeneficioService {
         canje = usuarioBeneficioRepository.save(canje);
         context.obtenerBeneficiosUsuario(usuario.getId()).agregar(beneficio);
 
-        Notificacion notificacion = new Notificacion(
-                TipoAlerta.CANJE_BENEFICIO,
-                "Canjeaste '" + beneficio.getNombre() + "' por " + beneficio.getCostoPuntos() + " puntos.",
-                usuario
-        );
-        notificacion = notificacionRepository.save(notificacion);
-        context.getColaNotificaciones().encolar(notificacion);
+        notificacionService.notificarCanjeBeneficio(usuario, beneficio);
 
         return mapper.toCanjeDTO(canje);
     }

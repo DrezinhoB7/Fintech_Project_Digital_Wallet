@@ -159,4 +159,11 @@ public class Usuario implements Comparable<Usuario> {
 
     public List<Billetera> getBilleteras() { return billeteras; }
     public void setBilleteras(List<Billetera> billeteras) { this.billeteras = billeteras; }
+    public double calcularSaldoTotal(){
+        double d = 0.0f;
+        for(Billetera b : billeteras){
+            d+=b.getSaldoDisponible();
+        }
+        return d;
+    }
 }

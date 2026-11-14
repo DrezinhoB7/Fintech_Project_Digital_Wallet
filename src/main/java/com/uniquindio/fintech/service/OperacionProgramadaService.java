@@ -92,6 +92,15 @@ public class OperacionProgramadaService {
         long prioridad = calcularPrioridad(op.getFechaEjecucion());
         context.getColaProgramadas().encolar(op, prioridad);
 
+        if (!op.getFechaEjecucion().isAfter(LocalDateTime.now().plusHours(NotificacionService.HORAS_AVISO_PROGRAMADA))) {
+            registrarNotificacion(
+                    TipoAlerta.OPERACION_PROGRAMADA,
+                    "Tienes una transacción programada próxima a ejecutarse el " + op.getFechaEjecucion()
+                            + " por $" + op.getValor() + " hacia la billetera " + billeteraDestino.getCodigo(),
+                    billeteraOrigen.getUsuario()
+            );
+        }
+
         return mapper.toProgramadaDTO(op);
     }
 
@@ -183,6 +192,14 @@ public class OperacionProgramadaService {
                     "Se ejecutó exitosamente el pago programado por $" + op.getValor() + " hacia la billetera " + destino.getCodigo(),
                     usuarioOrigen
             );
+
+            if (origen.getSaldoDisponible() < NotificacionService.UMBRAL_SALDO_BAJO) {
+                registrarNotificacion(
+                        TipoAlerta.SALDO_BAJO,
+                        "Alerta de saldo bajo: La billetera " + origen.getCodigo() + " tiene un saldo disponible de $" + origen.getSaldoDisponible(),
+                        usuarioOrigen
+                );
+            }
 
             if (subioNivel) {
                 registrarNotificacion(

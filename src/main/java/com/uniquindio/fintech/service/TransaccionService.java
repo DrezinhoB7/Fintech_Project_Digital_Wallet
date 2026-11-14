@@ -34,17 +34,20 @@ public class TransaccionService {
     private final UsuarioRepository usuarioRepository;
     private final PlataformaFintechContext context;
     private final FintechMapper mapper;
+    private final NotificacionService notificacionService;
 
     public TransaccionService(TransaccionRepository transaccionRepository,
                               BilleteraRepository billeteraRepository,
                               UsuarioRepository usuarioRepository,
                               PlataformaFintechContext context,
-                              FintechMapper mapper) {
+                              FintechMapper mapper,
+                              NotificacionService notificacionService) {
         this.transaccionRepository = transaccionRepository;
         this.billeteraRepository = billeteraRepository;
         this.usuarioRepository = usuarioRepository;
         this.context = context;
         this.mapper = mapper;
+        this.notificacionService = notificacionService;
     }
 
     @Transactional
@@ -64,11 +67,15 @@ public class TransaccionService {
         return mapper.toTransaccionResponseDTO(tx);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = OperacionInvalidaException.class)
     public TransaccionResponseDTO retirar(RecargaRetiroRequestDTO dto) {
         Billetera origen = obtenerBilleteraActiva(dto.codigoBilletera());
 
         if (origen.getSaldoDisponible() < dto.valor()) {
+            notificacionService.notificarOperacionRechazada(
+                    origen.getUsuario(),
+                    "Retiro por $" + dto.valor() + " rechazado por saldo insuficiente en la billetera " + origen.getCodigo()
+            );
             throw new OperacionInvalidaException("Saldo insuficiente en la billetera " + origen.getCodigo());
         }
 
@@ -81,11 +88,12 @@ public class TransaccionService {
 
         tx = transaccionRepository.save(tx);
         context.registrarTransaccionEnEstructuras(tx);
+        notificacionService.verificarSaldoBajoBilletera(origen);
 
         return mapper.toTransaccionResponseDTO(tx);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = OperacionInvalidaException.class)
     public TransaccionResponseDTO transferir(TransferenciaRequestDTO dto) {
         if (dto.codigoOrigen().equalsIgnoreCase(dto.codigoDestino())) {
             throw new OperacionInvalidaException("La billetera origen y destino no pueden ser la misma.");
@@ -95,6 +103,10 @@ public class TransaccionService {
         Billetera destino = obtenerBilleteraActiva(dto.codigoDestino());
 
         if (origen.getSaldoDisponible() < dto.valor()) {
+            notificacionService.notificarOperacionRechazada(
+                    origen.getUsuario(),
+                    "Transferencia por $" + dto.valor() + " rechazada por saldo insuficiente en la billetera " + origen.getCodigo()
+            );
             throw new OperacionInvalidaException("Saldo insuficiente para realizar la transferencia.");
         }
 
@@ -109,6 +121,7 @@ public class TransaccionService {
 
         tx = transaccionRepository.save(tx);
         context.registrarTransaccionEnEstructuras(tx);
+        notificacionService.verificarSaldoBajoBilletera(origen);
 
         return mapper.toTransaccionResponseDTO(tx);
     }
@@ -213,9 +226,13 @@ public class TransaccionService {
 
         if (puntos > 0 && usuario != null) {
             context.getArbolPuntos().eliminar(usuario);
-            usuario.setPuntosAcumulados(usuario.getPuntosAcumulados() + puntos);
+            boolean subioNivel = usuario.acumularPuntos(puntos);
             usuarioRepository.save(usuario);
             context.getArbolPuntos().insertar(usuario);
+
+            if (subioNivel) {
+                notificacionService.notificarAscensoNivel(usuario);
+            }
         }
     }
 }
