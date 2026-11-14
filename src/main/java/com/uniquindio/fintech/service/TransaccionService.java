@@ -12,26 +12,32 @@ import com.uniquindio.fintech.exception.OperacionInvalidaException;
 import com.uniquindio.fintech.exception.RecursoNoEncontradoException;
 import com.uniquindio.fintech.mapper.FintechMapper;
 import com.uniquindio.fintech.model.Billetera;
+import com.uniquindio.fintech.model.RegistroAuditoria;
 import com.uniquindio.fintech.model.Transaccion;
 import com.uniquindio.fintech.model.Usuario;
 import com.uniquindio.fintech.repository.BilleteraRepository;
+import com.uniquindio.fintech.repository.RegistroAuditoriaRepository;
 import com.uniquindio.fintech.repository.TransaccionRepository;
 import com.uniquindio.fintech.repository.UsuarioRepository;
+import com.uniquindio.fintech.structures.grafo.Arista;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class TransaccionService {
 
     private static final double UMBRAL_RIESGO_MEDIO = 2000.0;
     private static final double UMBRAL_RIESGO_ALTO = 5000.0;
+    private static final int UMBRAL_RAFAGA_TRANSFERENCIAS = 3;
 
     private final TransaccionRepository transaccionRepository;
     private final BilleteraRepository billeteraRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAuditoriaRepository auditoriaRepository;
     private final PlataformaFintechContext context;
     private final FintechMapper mapper;
     private final NotificacionService notificacionService;
@@ -39,12 +45,14 @@ public class TransaccionService {
     public TransaccionService(TransaccionRepository transaccionRepository,
                               BilleteraRepository billeteraRepository,
                               UsuarioRepository usuarioRepository,
+                              RegistroAuditoriaRepository auditoriaRepository,
                               PlataformaFintechContext context,
                               FintechMapper mapper,
                               NotificacionService notificacionService) {
         this.transaccionRepository = transaccionRepository;
         this.billeteraRepository = billeteraRepository;
         this.usuarioRepository = usuarioRepository;
+        this.auditoriaRepository = auditoriaRepository;
         this.context = context;
         this.mapper = mapper;
         this.notificacionService = notificacionService;
@@ -63,6 +71,7 @@ public class TransaccionService {
 
         tx = transaccionRepository.save(tx);
         context.registrarTransaccionEnEstructuras(tx);
+        auditarTransaccion(tx, destino.getUsuario());
 
         return mapper.toTransaccionResponseDTO(tx);
     }
@@ -88,6 +97,7 @@ public class TransaccionService {
 
         tx = transaccionRepository.save(tx);
         context.registrarTransaccionEnEstructuras(tx);
+        auditarTransaccion(tx, origen.getUsuario());
         notificacionService.verificarSaldoBajoBilletera(origen);
 
         return mapper.toTransaccionResponseDTO(tx);
@@ -121,6 +131,7 @@ public class TransaccionService {
 
         tx = transaccionRepository.save(tx);
         context.registrarTransaccionEnEstructuras(tx);
+        auditarTransaccion(tx, origen.getUsuario());
         notificacionService.verificarSaldoBajoBilletera(origen);
 
         return mapper.toTransaccionResponseDTO(tx);
@@ -192,7 +203,6 @@ public class TransaccionService {
         ultima.setReversible(false);
         transaccionRepository.save(ultima);
 
-        // El constructor de Transaccion deja reversible = false para REVERSION, así que no se apila
         Transaccion reversion = new Transaccion(TipoTransaccion.REVERSION, valor, destino, origen);
         reversion.setEstado(EstadoTransaccion.COMPLETADA);
         reversion = transaccionRepository.save(reversion);
@@ -234,5 +244,68 @@ public class TransaccionService {
                 notificacionService.notificarAscensoNivel(usuario);
             }
         }
+    }
+
+    private void auditarTransaccion(Transaccion tx, Usuario usuario) {
+        if (usuario == null) {
+            return;
+        }
+
+        //peración por monto elevado
+        if (tx.getNivelRiesgo() == NivelRiesgo.ALTO) {
+            registrarAlertaAuditoria(
+                    "MONTO_ELEVADO",
+                    "Operación tipo " + tx.getTipoTransaccion() + " por valor de $" + tx.getValor()
+                            + " supera el umbral de control ($" + UMBRAL_RIESGO_ALTO + ").",
+                    NivelRiesgo.ALTO,
+                    tx,
+                    usuario
+            );
+        }
+
+
+        if (tx.getTipoTransaccion() == TipoTransaccion.TRANSFERENCIA
+                && tx.getBilleteraOrigen() != null
+                && tx.getBilleteraDestino() != null) {
+
+            Billetera origen = tx.getBilleteraOrigen();
+            Billetera destino = tx.getBilleteraDestino();
+
+            //Muchas transferencias entre las dos mismas billeteras
+            for (Arista<Billetera> arista : context.getGrafoTransferencias().obtenerVecinos(origen)) {
+                if (Objects.equals(arista.getDestino(), destino)
+                        && arista.getFrecuencia() >= UMBRAL_RAFAGA_TRANSFERENCIAS) {
+                    registrarAlertaAuditoria(
+                            "RAFAGA_TRANSFERENCIAS",
+                            "Se registran " + arista.getFrecuencia() + " transferencias entre "
+                                    + origen.getCodigo() + " y " + destino.getCodigo()
+                                    + " (acumulado: $" + arista.getPesoMonto() + ").",
+                            NivelRiesgo.MEDIO,
+                            tx,
+                            usuario
+                    );
+                    break;
+                }
+            }
+
+            //Triangulación circular en tiempo real
+            if (context.getGrafoTransferencias().detectarCiclos()) {
+                registrarAlertaAuditoria(
+                        "CICLO_TRANSFERENCIA_DETECTADO",
+                        "Triangulación circular detectada en el grafo tras transferencia de "
+                                + origen.getCodigo() + " hacia " + destino.getCodigo() + ".",
+                        NivelRiesgo.ALTO,
+                        tx,
+                        usuario
+                );
+            }
+        }
+    }
+
+    private void registrarAlertaAuditoria(String regla, String descripcion, NivelRiesgo riesgo,
+                                          Transaccion tx, Usuario usuario) {
+        RegistroAuditoria registro = new RegistroAuditoria(regla, descripcion, riesgo, tx, usuario);
+        registro = auditoriaRepository.save(registro);
+        context.getHistorialAuditoria().agregar(registro);
     }
 }
