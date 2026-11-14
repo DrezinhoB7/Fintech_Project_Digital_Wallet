@@ -111,4 +111,28 @@ public class FintechMapper {
                 notificacion.getUsuario()
         );
     }
+
+    public RegistroAuditoriaResponseDTO toAuditoriaDTO(RegistroAuditoria reg) {
+        String txId = reg.getTransaccion() != null ? reg.getTransaccion().getId() : null;
+        double valorTx = reg.getTransaccion() != null ? reg.getTransaccion().getValor() : 0.0;
+        String userId = reg.getUsuario() != null ? reg.getUsuario().getId() : null;
+        String nombreUser = reg.getUsuario() != null ? reg.getUsuario().getNombre() : null;
+
+        return new RegistroAuditoriaResponseDTO(
+                reg.getId(),
+                reg.getFechaDeteccion(),
+                reg.getReglaActivada(),
+                reg.getDescripcion(),
+                reg.getNivelRiesgo(),
+                txId,
+                valorTx,
+                userId,
+                nombreUser
+        );
+    }
+
+
+
+
+
 }
