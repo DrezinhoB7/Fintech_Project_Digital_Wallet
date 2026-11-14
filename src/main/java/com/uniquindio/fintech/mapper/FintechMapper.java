@@ -1,8 +1,10 @@
 package com.uniquindio.fintech.mapper;
 
 import com.uniquindio.fintech.dto.BilleteraResponseDTO;
+import com.uniquindio.fintech.dto.OperacionProgramadaResponseDTO;
 import com.uniquindio.fintech.dto.UsuarioResponseDTO;
 import com.uniquindio.fintech.model.Billetera;
+import com.uniquindio.fintech.model.OperacionProgramada;
 import com.uniquindio.fintech.model.Usuario;
 import org.springframework.stereotype.Component;
 
@@ -41,6 +43,16 @@ public class FintechMapper {
                 billetera.getEstado(),
                 billetera.getUsuario().getId(),
                 billetera.getUsuario().getNombre()
+        );
+    }
+    public OperacionProgramadaResponseDTO toProgramadaDTO(OperacionProgramada op){
+        return new OperacionProgramadaResponseDTO(
+                op.getId(),
+                op.getFechaEjecucion(),
+                op.getFrecuencia(),
+                op.isActiva(),
+                op.getBilleteraOrigen(),
+                op.getBilleteraDestino()
         );
     }
 }

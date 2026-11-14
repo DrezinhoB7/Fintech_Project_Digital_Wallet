@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 public record OperacionProgramadaResponseDTO( String id,
                                              LocalDateTime fechaEjecucion,
                                              FrecuenciaOperacion frecuencia,
-                                             EstadoTransaccion estado,
+                                             boolean estado,
                                              Billetera origen,
                                              Billetera Destino) {
 }

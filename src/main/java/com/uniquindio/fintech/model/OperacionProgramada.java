@@ -40,8 +40,10 @@ public class OperacionProgramada implements Comparable<OperacionProgramada> {
     @JoinColumn(name = "billetera_destino_codigo")
     private Billetera billeteraDestino;
 
+
     public OperacionProgramada() {
     }
+
 
     public OperacionProgramada(LocalDateTime fechaEjecucion, TipoTransaccion tipoOperacion, double valor,
                                FrecuenciaOperacion frecuencia, Billetera billeteraOrigen, Billetera billeteraDestino) {
