@@ -49,56 +49,47 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
-        /*
-        * Registro automático de usuarios al iniciar la aplicación
-        * Registra usuarios con diferentes puntajes para que se vea el uso del ArbolBST
-        * */
-        Usuario u1 = new Usuario("1094901001", "Robinson Ronadl", "rr@uniquindio.edu.co", "3104567890");
-        u1.acumularPuntos(2500);
+        //Usuarios en los 3 niveles para el ArbolBST
+        Usuario u1 = new Usuario("1094901001", "Robinson Ronaldo", "rr@uniquindio.edu.co", "3104567890");
+        u1.acumularPuntos(2500); // Nivel ORO
 
         Usuario u2 = new Usuario("1094901002", "Pacho Gonzales", "p.gonzales@uniquindio.edu.co", "3119876543");
-        u2.acumularPuntos(850);
+        u2.acumularPuntos(850);  // Nivel PLATA
 
         Usuario u3 = new Usuario("1094901003", "Andrés Gómez", "andres.gomez@uniquindio.edu.co", "3123456789");
-        u3.acumularPuntos(120);
+        u3.acumularPuntos(120);  // Nivel BRONCE
 
         u1 = usuarioRepository.save(u1);
         u2 = usuarioRepository.save(u2);
         u3 = usuarioRepository.save(u3);
 
-        /*
-        * Registro de billeteras
-        * */
-        TipoBilletera tipoPrincipal = TipoBilletera.values()[0];
-        TipoBilletera tipoSecundaria = TipoBilletera.values().length > 1
-                ? TipoBilletera.values()[1]
-                : tipoPrincipal;
+        //Billeteras categorizadas
+        Billetera b1 = new Billetera("BIL-1001", "Cuenta Principal RR", TipoBilletera.GASTOS_DIARIOS, u1);
+        b1.recargar(2500000);
 
-        Billetera b1 = new Billetera("BIL-1001", "Cuenta Principal RR", tipoPrincipal, u1);
-        b1.recargar(1200000);
+        Billetera b2 = new Billetera("BIL-1002", "Cuenta Principal Pachito", TipoBilletera.GASTOS_DIARIOS, u2);
+        b2.recargar(1400000);
 
-        Billetera b2 = new Billetera("BIL-1002", "Cuenta Principal Pachito", tipoPrincipal, u2);
-        b2.recargar(650000);
+        Billetera b3 = new Billetera("BIL-1003", "Cuenta Principal Andrés", TipoBilletera.AHORRO, u3);
+        b3.recargar(650000);
 
-        Billetera b3 = new Billetera("BIL-1003", "Cuenta Principal Andrés", tipoPrincipal, u3);
-        b3.recargar(300000);
-
-        Billetera b4 = new Billetera("BIL-1004", "Ahorros Mateo", tipoSecundaria, u1);
-        b4.recargar(450000);
+        Billetera b4 = new Billetera("BIL-1004", "Fondo Inversiones RR", TipoBilletera.INVERSION, u1);
+        b4.recargar(15000000);
 
         b1 = billeteraRepository.save(b1);
         b2 = billeteraRepository.save(b2);
         b3 = billeteraRepository.save(b3);
         b4 = billeteraRepository.save(b4);
 
-        /* Transacciones para evidenciar el uso de grafos (movimientos sospechosos)*/
+        //Transacciones
         Transaccion txRecarga = crearTxCompletada(TipoTransaccion.RECARGA, 500000, null, b1, NivelRiesgo.BAJO);
-        /* BIL-1001 transfiere 2 veces a BIL-1002 */
+        // BIL-1001 transfiere 2 veces a BIL-1002 (ruta frecuente)
         Transaccion tx1 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 150000, b1, b2, NivelRiesgo.BAJO);
         Transaccion tx2 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 80000, b1, b2, NivelRiesgo.BAJO);
-        /*Cerramos el ciclo transfiriendo de BIL-1002 -> BIL-1003 -> BIL-1001*/
-        Transaccion tx3 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 120000, b2, b3, NivelRiesgo.MEDIO);
-        Transaccion tx4 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 95000, b3, b1, NivelRiesgo.ALTO);
+        // Transferencia mayor a $1M -> Riesgo MEDIO
+        Transaccion tx3 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 1200000, b2, b3, NivelRiesgo.MEDIO);
+        // Cierra el ciclo BIL-1001 -> BIL-1002 -> BIL-1003 -> BIL-1001 -> Escala a CRITICO
+        Transaccion tx4 = crearTxCompletada(TipoTransaccion.TRANSFERENCIA, 250000, b3, b1, NivelRiesgo.CRITICO);
 
         transaccionRepository.save(txRecarga);
         transaccionRepository.save(tx1);
@@ -106,7 +97,7 @@ public class DataInitializer implements CommandLineRunner {
         transaccionRepository.save(tx3);
         tx4 = transaccionRepository.save(tx4);
 
-        /*Catálogo de Beneficios y un canje inicial*/
+        //Catálogo de Beneficios y un canje inicial
         Beneficio ben1 = beneficioRepository.save(
                 new Beneficio("Bono Café del Quindío", "50% de descuento en tiendas de café aliadas", 50, NivelUsuario.BRONCE)
         );
@@ -119,19 +110,27 @@ public class DataInitializer implements CommandLineRunner {
 
         usuarioBeneficioRepository.save(new UsuarioBeneficio(u1, ben1, ben1.getCostoPuntos()));
 
-        /* Operación programada para 6 horas despues de haberse ejecutado el programa por primera vez */
-        FrecuenciaOperacion frecuenciaDefault = FrecuenciaOperacion.values()[0];
-        OperacionProgramada opProgramada = new OperacionProgramada(
-                LocalDateTime.now().plusHours(6),
+        //Dos operaciones programadas con distinta prioridad temporal para la ColaPrioridad
+        OperacionProgramada opProxima = new OperacionProgramada(
+                LocalDateTime.now().plusHours(2),
                 TipoTransaccion.TRANSFERENCIA,
                 75000,
-                frecuenciaDefault,
+                FrecuenciaOperacion.UNICA,
                 b1,
                 b2
         );
-        operacionProgramadaRepository.save(opProgramada);
+        OperacionProgramada opPosterior = new OperacionProgramada(
+                LocalDateTime.now().plusHours(12),
+                TipoTransaccion.TRANSFERENCIA,
+                200000,
+                FrecuenciaOperacion.MENSUAL,
+                b4,
+                b3
+        );
+        operacionProgramadaRepository.save(opProxima);
+        operacionProgramadaRepository.save(opPosterior);
 
-        /* Notificaciones pendientes */
+        //Notificaciones pendientes en Cola FIFO
         notificacionRepository.save(new Notificacion(
                 TipoAlerta.ASCENSO_NIVEL,
                 "¡Bienvenido al nivel " + u1.getNivel() + "! Tienes beneficios exclusivos disponibles.",
@@ -143,19 +142,18 @@ public class DataInitializer implements CommandLineRunner {
                 u1
         ));
 
-        /*Registro de Auditoría de Riesgo*/
+        //Registro inicial en Bitácora de Auditoría (CRITICO por triangulación)
         auditoriaRepository.save(new RegistroAuditoria(
                 "CICLO_TRANSFERENCIA_DETECTADO",
                 "Triangulación circular detectada entre BIL-1001 -> BIL-1002 -> BIL-1003 -> BIL-1001.",
-                NivelRiesgo.ALTO,
+                NivelRiesgo.CRITICO,
                 tx4,
                 u3
         ));
 
-        //Sincronizamos los datos insertados con nuestras estructuras propias (RAM)
+        //Sincronizamos la base de datos (H2) con nuestras listas alojadas en la ram
         context.recargarDesdeBaseDeDatos();
-        //Comprobación en consola
-        System.out.println("Se cargó con éxito");
+        System.out.println(">>> QuindíoPay: Datos iniciales cargados y sincronizados");
     }
 
     private Transaccion crearTxCompletada(TipoTransaccion tipo, double valor, Billetera origen,

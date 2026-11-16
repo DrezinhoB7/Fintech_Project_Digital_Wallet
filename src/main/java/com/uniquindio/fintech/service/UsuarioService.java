@@ -76,11 +76,14 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> listarUsuarios() {
-        Lista<Usuario> usuariosEnHash = context.getUsuariosPorId().valores();
+        List<Usuario> usuariosBD = usuarioRepository.findAll();
         List<UsuarioResponseDTO> respuesta = new ArrayList<>();
-        for (Usuario u : usuariosEnHash) {
-            List<Billetera> billeteras = billeteraRepository.findByUsuarioId(u.getId());
-            respuesta.add(mapper.toUsuarioDTO(u, billeteras));
+        for (Usuario u : usuariosBD) {
+            if (u.isActivo()) {
+                context.getUsuariosPorId().insertar(u.getIdentificacion(), u);
+                List<Billetera> billeteras = billeteraRepository.findByUsuarioId(u.getId());
+                respuesta.add(mapper.toUsuarioDTO(u, billeteras));
+            }
         }
         return respuesta;
     }
@@ -145,7 +148,7 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
 
         context.getUsuariosPorId().eliminar(usuario.getIdentificacion());
-        context.getArbolPuntos().eliminar(usuario);
+        context.getArbolPuntos().eliminarSi(u -> u.getId().equals(id));
     }
 
     private String generarCodigoBilletera() {

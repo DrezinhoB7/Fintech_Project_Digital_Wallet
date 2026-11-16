@@ -30,8 +30,9 @@ import java.util.Objects;
 @Service
 public class TransaccionService {
 
-    private static final double UMBRAL_RIESGO_MEDIO = 2000.0;
-    private static final double UMBRAL_RIESGO_ALTO = 5000.0;
+    private static final double UMBRAL_RIESGO_MEDIO = 1000000.0;
+    private static final double UMBRAL_RIESGO_ALTO = 3000000.0;
+    private static final double UMBRAL_RIESGO_CRITICO = 10000000.0;
     private static final int UMBRAL_RAFAGA_TRANSFERENCIAS = 3;
 
     private final TransaccionRepository transaccionRepository;
@@ -223,7 +224,9 @@ public class TransaccionService {
     }
 
     private void evaluarRiesgoYAsignarPuntos(Transaccion tx, Usuario usuario) {
-        if (tx.getValor() >= UMBRAL_RIESGO_ALTO) {
+        if (tx.getValor() >= UMBRAL_RIESGO_CRITICO) {
+            tx.setNivelRiesgo(NivelRiesgo.CRITICO);
+        } else if (tx.getValor() >= UMBRAL_RIESGO_ALTO) {
             tx.setNivelRiesgo(NivelRiesgo.ALTO);
         } else if (tx.getValor() >= UMBRAL_RIESGO_MEDIO) {
             tx.setNivelRiesgo(NivelRiesgo.MEDIO);
@@ -235,10 +238,14 @@ public class TransaccionService {
         tx.setPuntosGenerados(puntos);
 
         if (puntos > 0 && usuario != null) {
-            context.getArbolPuntos().eliminar(usuario);
+            final String idUsuario = usuario.getId();
+            context.getArbolPuntos().eliminarSi(u -> u.getId().equals(idUsuario));
+
             boolean subioNivel = usuario.acumularPuntos(puntos);
-            usuarioRepository.save(usuario);
+            usuario = usuarioRepository.save(usuario);
+
             context.getArbolPuntos().insertar(usuario);
+            context.getUsuariosPorId().insertar(usuario.getIdentificacion(), usuario);
 
             if (subioNivel) {
                 notificacionService.notificarAscensoNivel(usuario);
@@ -251,8 +258,17 @@ public class TransaccionService {
             return;
         }
 
-        //peración por monto elevado
-        if (tx.getNivelRiesgo() == NivelRiesgo.ALTO) {
+        // Operación por monto crítico o elevado
+        if (tx.getNivelRiesgo() == NivelRiesgo.CRITICO) {
+            registrarAlertaAuditoria(
+                    "MONTO_CRITICO",
+                    "Operación tipo " + tx.getTipoTransaccion() + " por valor de $" + tx.getValor()
+                            + " supera el tope crítico ($" + UMBRAL_RIESGO_CRITICO + ").",
+                    NivelRiesgo.CRITICO,
+                    tx,
+                    usuario
+            );
+        } else if (tx.getNivelRiesgo() == NivelRiesgo.ALTO) {
             registrarAlertaAuditoria(
                     "MONTO_ELEVADO",
                     "Operación tipo " + tx.getTipoTransaccion() + " por valor de $" + tx.getValor()
@@ -263,7 +279,6 @@ public class TransaccionService {
             );
         }
 
-
         if (tx.getTipoTransaccion() == TipoTransaccion.TRANSFERENCIA
                 && tx.getBilleteraOrigen() != null
                 && tx.getBilleteraDestino() != null) {
@@ -271,7 +286,7 @@ public class TransaccionService {
             Billetera origen = tx.getBilleteraOrigen();
             Billetera destino = tx.getBilleteraDestino();
 
-            //Muchas transferencias entre las dos mismas billeteras
+            // Muchas transferencias entre las dos mismas billeteras
             for (Arista<Billetera> arista : context.getGrafoTransferencias().obtenerVecinos(origen)) {
                 if (Objects.equals(arista.getDestino(), destino)
                         && arista.getFrecuencia() >= UMBRAL_RAFAGA_TRANSFERENCIAS) {
@@ -288,13 +303,15 @@ public class TransaccionService {
                 }
             }
 
-            //Triangulación circular en tiempo real
+            // Triangulación circular en tiempo real -> escala a CRÍTICO
             if (context.getGrafoTransferencias().detectarCiclos()) {
+                tx.setNivelRiesgo(NivelRiesgo.CRITICO);
+                transaccionRepository.save(tx);
                 registrarAlertaAuditoria(
                         "CICLO_TRANSFERENCIA_DETECTADO",
                         "Triangulación circular detectada en el grafo tras transferencia de "
                                 + origen.getCodigo() + " hacia " + destino.getCodigo() + ".",
-                        NivelRiesgo.ALTO,
+                        NivelRiesgo.CRITICO,
                         tx,
                         usuario
                 );
