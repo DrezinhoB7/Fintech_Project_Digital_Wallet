@@ -106,7 +106,8 @@ public class BeneficioService {
                     "No cumples los requisitos (puntos suficientes, nivel " + beneficio.getNivelRequerido() + " o cuenta activa) para este beneficio."
             );
         }
-        context.getArbolPuntos().eliminar(usuario);
+        final String idUsuario = usuario.getId();
+        context.getArbolPuntos().eliminarSi(u -> u.getId().equals(idUsuario));
 
         usuario.canjearBeneficio(beneficio);
         usuario = usuarioRepository.save(usuario);

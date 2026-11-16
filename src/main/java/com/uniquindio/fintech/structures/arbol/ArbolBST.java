@@ -61,6 +61,34 @@ public class ArbolBST<T extends Comparable<T>> {
         return actual;
     }
 
+    public void eliminarSi(java.util.function.Predicate<T> criterio) {
+        if (criterio == null) {
+            return;
+        }
+        raiz = eliminarSiRec(raiz, criterio);
+    }
+
+    private NodoArbol<T> eliminarSiRec(NodoArbol<T> actual, java.util.function.Predicate<T> criterio) {
+        if (actual == null) {
+            return null;
+        }
+        actual.setIzquierdo(eliminarSiRec(actual.getIzquierdo(), criterio));
+        actual.setDerecho(eliminarSiRec(actual.getDerecho(), criterio));
+
+        if (criterio.test(actual.getDato())) {
+            if (actual.getIzquierdo() == null) {
+                return actual.getDerecho();
+            }
+            if (actual.getDerecho() == null) {
+                return actual.getIzquierdo();
+            }
+            NodoArbol<T> sucesor = encontrarMinimo(actual.getDerecho());
+            actual.setDato(sucesor.getDato());
+            actual.setDerecho(eliminarRec(actual.getDerecho(), sucesor.getDato()));
+        }
+        return actual;
+    }
+
     private NodoArbol<T> encontrarMinimo(NodoArbol<T> nodo) {
         while (nodo.getIzquierdo() != null) {
             nodo = nodo.getIzquierdo();
